@@ -37,6 +37,58 @@ def define_constants():
 
 define_constants()
 
+##################################################
+#                   New Tasks                    #
+##################################################
+
+def shift_chars(vocab_size, dataset_size, min_length=2, max_length=16, seed=0):
+    # Shift characters in a string to the right by 1. Example: "12345" -> "23451"
+    vocab = np.array([str(i) for i in range(vocab_size - 2)])
+    sents, tags = [], []
+    np.random.seed(seed)
+    for _ in range(dataset_size):
+        l = np.random.randint(min_length, max_length)
+        sent = np.random.choice(vocab, size=l, replace=True).tolist()
+        sent = [BOS] + sent
+        sents.append(sent)
+
+        target = [PAD] + sent[1:] + [sent[1]]
+        target.pop(1)
+        tags.append(target)
+        
+    return pd.DataFrame({"sent": sents, "tags": tags})
+
+def make_encoding(vocab_size, dataset_size, min_length=2, max_length=16, seed=0):
+    vocab = np.array([str(i) for i in range(vocab_size - 2)])
+    sents, tags = [], []
+    np.random.seed(seed)
+    for _ in range(dataset_size):
+        l = np.random.randint(min_length, max_length)
+        sent = np.random.choice(vocab, size=l, replace=True).tolist()
+        sent = [BOS] + sent
+        compressed_sent = compress_string(sent)
+        tag = [PAD] + compressed_sent 
+        tag = tag + [PAD] * (len(sent) - len(tag))
+        if len(tag) > len(sent):
+            continue
+        sents.append(sent)
+        tags.append(tag)
+    return pd.DataFrame({"sent": sents, "tags": tags})
+
+def compress_string(string):
+    compressed = []
+    count = 1
+    for i in range(1, len(string)):
+        if string[i] == string[i - 1]:
+            count += 1
+        else:
+            compressed.append(string[i - 1] + str(count))
+            count = 1
+    compressed.append(string[-1] + str(count))
+    return compressed
+
+##################################################
+
 def make_induction(
     vocab_size, dataset_size, min_length=4, max_length=16, seed=0, unique=True
 ):
@@ -149,37 +201,6 @@ def make_most_freq(
         t += [BOS] * (len(sents[-1]) - len(t))
         tags.append(t)
     return pd.DataFrame({"sent": sents, "tags": tags})
-
-
-def make_encoding(vocab_size, dataset_size, min_length=2, max_length=16, seed=0):
-    vocab = np.array([str(i) for i in range(vocab_size - 2)])
-    sents, tags = [], []
-    np.random.seed(seed)
-    for _ in range(dataset_size):
-        l = np.random.randint(min_length, max_length)
-        sent = np.random.choice(vocab, size=l, replace=True).tolist()
-        sent = [BOS] + sent
-        compressed_sent = compress_string(sent)
-        tag = [PAD] + compressed_sent 
-        tag = tag + [PAD] * (len(sent) - len(tag))
-        if len(tag) > len(sent):
-            continue
-        sents.append(sent)
-        tags.append(tag)
-    return pd.DataFrame({"sent": sents, "tags": tags})
-
-def compress_string(string):
-    compressed = []
-    count = 1
-    for i in range(1, len(string)):
-        if string[i] == string[i - 1]:
-            count += 1
-        else:
-            compressed.append(string[i - 1] + str(count))
-            count = 1
-    compressed.append(string[-1] + str(count))
-    return compressed
-
 
 def sample_dyck(vocab_size=1, max_depth=8, min_depth=1):
     vocab = [("(", ")"), ("{", "}")][:vocab_size]
@@ -645,6 +666,8 @@ def get_dataset(
         "dyck2": make_dyck_pft,
         "sort": make_sort,
 
+        # New tasks:
+        "shift_chars": shift_chars,
         "encoding": make_encoding,
     }
     fn_source = inspect.getsource(fns[name])
